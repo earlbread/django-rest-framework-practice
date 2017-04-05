@@ -35,3 +35,26 @@ And activate environment again to use django-admin
 ```bash
 $ source .venv/bin/activate
 ```
+
+## 2. Getting started
+
+To get started, let's create a new project to work with.
+
+```bash
+$ django-admin startproject pastebin .
+```
+
+Add `snippets` app and the `rest_framework` app to `INSTALLED_APPS` in pastebin/settings.py.
+
+```python
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'snippets.apps.SnippetsConfig',
+]
+```
