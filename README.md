@@ -104,3 +104,38 @@ class SnippetSerializer(serializers.ModelSerializer):
         model = Snippet
         fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
 ```
+
+## 5. Writing Regular Django views using our Serializer
+
+Edit the `snippets/views.py` file, and add the following.
+
+```python
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.renderers import JSONRenderer
+from rest_framework.parser import JSONParser
+from snippets.models import Snippet
+from snippets.serializers import SnippetSerializer
+```
+
+The root of our API is going to be a view that supports listing all the existing snippets or creating a new snippet.
+
+```python
+@csrf_exempt
+def snippet_list(request):
+    """
+    List all code snippets, or create a new snippet.
+    """
+    if request.method == 'GET':
+        snippets = Snippet.objects.all()
+        serializer = SnippetSerializer(snippets, many=True)
+        return JSONResponse(serializer.data, safe=False)
+
+    elif request.method == 'POST':
+        data = JSONParser().parse(request)
+        serializer = SnippetSerializer(data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+```
