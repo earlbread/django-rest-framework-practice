@@ -159,8 +159,8 @@ def snippet_detail(request, pk):
         return JsonResponse(serializer.data)
 
     elif request.method == 'PUT':
-        data = JSONParser.parse(request)
-        serializer = SnippetSerializer(data=data)
+        data = JSONParser().parse(request)
+        serializer = SnippetSerializer(snippet, data=data)
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data)
