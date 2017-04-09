@@ -171,3 +171,25 @@ def snippet_detail(request, pk):
         snippet.delete()
         return HttpResponse(status=204)
 ```
+
+Finally we need to wire these views up. Create the `snippets/urls.py` file:
+
+```python
+from django.conf.urls import url
+from snippets import views
+
+urlpatterns = [
+        url(r'^snippets/$', views.snippet_list),
+        url(r'^snippets/(?P<pk>[0-9]+)/$', views.snippet_detail),
+]
+```
+
+We also need to wire up the root urlconf, in the `pastebin/urls.py` file to include our snippet app's URLs.
+
+```python
+from django.conf.urls import url, include
+
+urlpatterns = [
+    url(r'^', include('snippets.urls')),
+]
+```
