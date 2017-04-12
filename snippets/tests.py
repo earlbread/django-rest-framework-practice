@@ -45,6 +45,10 @@ class SnippetTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.content), serializer.data)
 
+        url = '/snippets/4/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_put_snippet(self):
         """
         Test PUT /snippets/id/
