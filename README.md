@@ -105,83 +105,43 @@ class SnippetSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
 ```
 
-## 5. Writing Regular Django views using our Serializer
+## 5. Writing views using generic class-based view.
 
 Edit the `snippets/views.py` file, and add the following.
 
 ```python
-from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.renderers import JSONRenderer
-from rest_framework.parsers import JSONParser
+from rest_framework import generics
 from snippets.models import Snippet
 from snippets.serializers import SnippetSerializer
 
-```
-
-The root of our API is going to be a view that supports listing all the existing snippets or creating a new snippet.
-
-```python
-@csrf_exempt
-def snippet_list(request):
+class SnippetList(generics.ListCreateAPIView):
     """
     List all code snippets, or create a new snippet.
     """
-    if request.method == 'GET':
-        snippets = Snippet.objects.all()
-        serializer = SnippetSerializer(snippets, many=True)
-        return JsonResponse(serializer.data, safe=False)
+    queryset = Snippet.objects.all()
+    serializer_class = SnippetSerializer
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = SnippetSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
-```
-
-We'll also need a view which corresponds to an individual snippet, and can be used retrieve, update or delete the snippet.
-
-```python
-@csrf_exempt
-def snippet_detail(request, pk):
+class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update or delete a code snippet.
     """
-    try:
-        snippet = Snippet.objects.get(pk=pk)
-    except SnippetDoesNotExist:
-        return HttpResponse(status=404)
-
-    if request.method == 'GET':
-        serializer = SnippetSerializer(snippet)
-        return JsonResponse(serializer.data)
-
-    elif request.method == 'PUT':
-        data = JSONParser().parse(request)
-        serializer = SnippetSerializer(snippet, data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data)
-        else:
-            return JsonReponse(serializer.errors, status=400)
-
-    elif request.method == 'DELETE':
-        snippet.delete()
-        return HttpResponse(status=204)
+    queryset = Snippet.objects.all()
+    serializer_class = SnippetSerializer
 ```
 
-Finally we need to wire these views up. Create the `snippets/urls.py` file:
+Also we need to wire these views up. Create the `snippets/urls.py` file:
 
 ```python
 from django.conf.urls import url
+from rest_framework.urlpatterns import format_suffix_patterns
 from snippets import views
 
 urlpatterns = [
-        url(r'^snippets/$', views.snippet_list),
-        url(r'^snippets/(?P<pk>[0-9]+)/$', views.snippet_detail),
+        url(r'^snippets/$', views.SnippetList.as_view()),
+        url(r'^snippets/(?P<pk>[0-9]+)/$', views.SnippetDetail.as_view()),
 ]
+
+urlpatterns = format_suffix_patterns(urlpatterns)
 ```
 
 We also need to wire up the root urlconf, in the `pastebin/urls.py` file to include our snippet app's URLs.
