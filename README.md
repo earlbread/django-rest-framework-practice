@@ -119,7 +119,13 @@ from snippets.models import Snippet
 class SnippetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Snippet
-        fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
+
+class UserSerializer(serializers.ModelSerializer):
+    snippets = serializers.PrimaryKeyRelatedField(many=True, queryset=Snippet.objects.all())
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'snippets')   fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
 ```
 
 ## 5. Writing views using generic class-based view.
@@ -144,6 +150,14 @@ class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+
+class UserList(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+class UserDetail(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 ```
 
 Also we need to wire these views up. Create the `snippets/urls.py` file:
@@ -156,6 +170,8 @@ from snippets import views
 urlpatterns = [
         url(r'^snippets/$', views.SnippetList.as_view()),
         url(r'^snippets/(?P<pk>[0-9]+)/$', views.SnippetDetail.as_view()),
+        url(r'^users/$', views.UserList.as_view()),
+        url(r'^users/(?P<pk>[0-9]+)/$', views.UserList.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
