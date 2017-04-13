@@ -1,4 +1,5 @@
 import json
+from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.test import APITestCase
 from snippets.models import Snippet
@@ -7,9 +8,12 @@ from snippets.serializers import SnippetSerializer
 
 class SnippetTestCase(APITestCase):
     def setUp(self):
-        Snippet.objects.create(code='a = 1')
-        Snippet.objects.create(code='b = 2')
-        Snippet.objects.create(code='foo = "bar\n"')
+        alice = User.objects.create_superuser('alice', 'alice@example.com', 'alicepassword')
+        bob = User.objects.create_superuser('bob', 'bob@example.com', 'bobpassword')
+
+        Snippet.objects.create(code='a = 1', owner=alice)
+        Snippet.objects.create(code='b = 2', owner=alice)
+        Snippet.objects.create(code='foo = "bar\n"', owner=bob)
 
     def test_get_snippet_list(self):
         """
@@ -28,6 +32,10 @@ class SnippetTestCase(APITestCase):
         """
         url = '/snippets/'
         data = {'code': 'abc = def'}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.login(username='alice', password='alicepassword')
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Snippet.objects.count(), 4)
@@ -55,6 +63,8 @@ class SnippetTestCase(APITestCase):
         """
         url = '/snippets/1/'
         data = {'code': 'c = 3'}
+        self.client.login(username='alice', password='alicepassword')
+
         response = self.client.put(url, data, format='json')
         snippet = Snippet.objects.first()
 
@@ -62,12 +72,23 @@ class SnippetTestCase(APITestCase):
         self.assertEqual(Snippet.objects.count(), 3)
         self.assertEqual(snippet.code, data['code'])
 
+        url = '/snippets/3/'
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
     def test_delete_snippet(self):
         """
         Test DELETE /snippets/id/
         """
         url = '/snippets/1/'
+        self.client.login(username='alice', password='alicepassword')
+
         response = self.client.delete(url)
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Snippet.objects.count(), 2)
+
+        url = '/snippets/3/'
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
