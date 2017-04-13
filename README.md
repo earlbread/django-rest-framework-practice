@@ -119,13 +119,14 @@ from snippets.models import Snippet
 class SnippetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Snippet
+        fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
 
 class UserSerializer(serializers.ModelSerializer):
     snippets = serializers.PrimaryKeyRelatedField(many=True, queryset=Snippet.objects.all())
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'snippets')   fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
+        fields = ('id', 'username', 'snippets')
 ```
 
 ## 5. Writing views using generic class-based view.
