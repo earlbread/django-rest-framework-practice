@@ -112,70 +112,99 @@ python manage.py migration
 Add code below to `snippets/serializers.py`.
 
 ```python
+from django.contrib.auth.models import User
 from rest_framework import serializers
 from snippets.models import Snippet
 
 
-class SnippetSerializer(serializers.ModelSerializer):
+class SnippetSerializer(serializers.HyperlinkedModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')
+    highlight = serializers.HyperlinkedIdentityField(view_name='snippet-highlight',
+                                                     format='html')
+
     class Meta:
         model = Snippet
-        fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
+        fields = ('url', 'id', 'highlight', 'title', 'code', 'linenos', 'language', 'style', 'owner')
 
-class UserSerializer(serializers.ModelSerializer):
-    snippets = serializers.PrimaryKeyRelatedField(many=True, queryset=Snippet.objects.all())
+class UserSerializer(serializers.HyperlinkedModelSerializer):
+    snippets = serializers.HyperlinkedRelatedField(many=True, view_name='snippet-detail', read_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'snippets')
+        fields = ('url', 'id', 'username', 'snippets')
 ```
 
-## 5. Writing views using generic class-based view.
+## 5. Writing views using ViewSet.
 
 Edit the `snippets/views.py` file, and add the following.
 
 ```python
-from rest_framework import generics
+from django.contrib.auth.models import User
+from rest_framework import permissions, renderers, viewsets
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+from rest_framework.decorators import detail_route
 from snippets.models import Snippet
-from snippets.serializers import SnippetSerializer
+from snippets.serializers import SnippetSerializer, UserSerializer
+from snippets.permissions import IsOwnerOrReadOnly
 
-class SnippetList(generics.ListCreateAPIView):
-    """
-    List all code snippets, or create a new snippet.
-    """
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
 
-class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
+class SnippetViewSet(viewsets.ModelViewSet):
     """
-    Retrieve, update or delete a code snippet.
+    This view set automatically provides `list`, `create`, `retrieve`,
+    `update` and `destroy` actions.
+
+    Additionally we also provide an extra `highlight` action.
     """
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly)
 
-class UserList(generics.ListAPIView):
+    @detail_route(renderer_classes=[renderers.StaticHTMLRenderer])
+    def highlight(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    This view set automatically provides `list` and `detail` actions.
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-class UserDetail(generics.RetrieveAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+
+class APIRoot(APIView):
+    def get(self, request, format=None):
+        return Response({
+            'users': reverse('user-list', request=request, format=format),
+            'snippets': reverse('snippet-list', request=request, format=format),
+        })
 ```
 
 Also we need to wire these views up. Create the `snippets/urls.py` file:
 
 ```python
-from django.conf.urls import url
-from rest_framework.urlpatterns import format_suffix_patterns
+from django.conf.urls import url, include
+from rest_framework.routers import DefaultRouter
 from snippets import views
+from snippets.views import SnippetViewSet, UserViewSet
 
+# Create a router and register our viewsets with it.
+router = DefaultRouter()
+router.register(r'snippets', views.SnippetViewSet)
+router.register(r'users', views.UserViewSet)
+
+# The API URLs are now determined automatically by the router.
+# Additionally, we include the login URLs for the browsable API.
 urlpatterns = [
-        url(r'^snippets/$', views.SnippetList.as_view()),
-        url(r'^snippets/(?P<pk>[0-9]+)/$', views.SnippetDetail.as_view()),
-        url(r'^users/$', views.UserList.as_view()),
-        url(r'^users/(?P<pk>[0-9]+)/$', views.UserList.as_view()),
+    url(r'^', include(router.urls)),
+    url(r'^api-auth', include('rest_framework.urls', namespace='rest_framework'))
 ]
-
-urlpatterns = format_suffix_patterns(urlpatterns)
 ```
 
 We also need to wire up the root urlconf, in the `pastebin/urls.py` file to include our snippet app's URLs.
@@ -185,5 +214,7 @@ from django.conf.urls import url, include
 
 urlpatterns = [
     url(r'^', include('snippets.urls')),
+    url(r'^api-auth/', include('rest_framework.urls',
+                                namespace='rest_framework')),
 ]
 ```
